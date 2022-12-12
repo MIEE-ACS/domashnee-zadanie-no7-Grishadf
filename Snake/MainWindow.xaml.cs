@@ -26,8 +26,12 @@ namespace Snake
         Head head;
         // вся змея
         List<PositionedEntity> snake;
+
         // яблоко
         Apple apple;
+        // отравленое яблоко
+        Poisoned_Apple poisoned_apple;
+
         //количество очков
         int score;
         //таймер по которому 
@@ -59,10 +63,14 @@ namespace Snake
                 Canvas.SetLeft(p.image, p.x);
             }
 
+            //обновляем положение отравленного яблока
+            Canvas.SetTop(poisoned_apple.image, poisoned_apple.y);
+            Canvas.SetLeft(poisoned_apple.image, poisoned_apple.x);
+
             //обновляем положение яблока
             Canvas.SetTop(apple.image, apple.y);
             Canvas.SetLeft(apple.image, apple.x);
-            
+
             //обновляем количество очков
             lblScore.Content = String.Format("{0}000", score);
         }
@@ -105,11 +113,36 @@ namespace Snake
                 score++;
                 //двигаем яблоко на новое место
                 apple.move();
+                poisoned_apple.move();
+
                 // добавляем новый сегмент к змее
                 var part = new BodyPart(snake.Last());
                 canvas1.Children.Add(part.image);
                 snake.Add(part);
             }
+
+            //проверяем, что голова змеи врезалась в отравленое яблоко
+            if (head.x == poisoned_apple.x && head.y == poisoned_apple.y)
+            {
+                //увеличиваем счет
+                score -= 2;
+                //двигаем яблоко на новое место
+                poisoned_apple.move();
+                apple.move();
+
+                // убираем послений сегмент у змее
+                var part = snake.Last();
+               // if(snake.Last() == 1)
+                //{
+                    //мы проиграли
+                   // moveTimer.Stop();
+                   // tbGameOver.Visibility = Visibility.Visible;
+                   // return;
+                //}
+                canvas1.Children.Remove(part.image);
+                snake.Remove(part);
+            }
+
             //перерисовываем экран
             UpdateField();
         }
@@ -148,9 +181,12 @@ namespace Snake
             
             // добавляем поле на канвас
             canvas1.Children.Add(field.image);
-            // создаем новое яблоко и добавлем его
+            // создаем новое яблоко и отравленое яблоко и добавлем его
+            poisoned_apple = new Poisoned_Apple(snake);
+            canvas1.Children.Add(poisoned_apple.image);
             apple = new Apple(snake);
             canvas1.Children.Add(apple.image);
+            
             // создаем голову
             head = new Head();
             snake.Add(head);
@@ -203,34 +239,23 @@ namespace Snake
 
             public int x
             {
-                get
-                {
-                    return m_x;
-                }
-                set
-                {
-                    m_x = value;
-                }
+                get {return m_x; }
+                set { m_x = value; }
             }
 
             public int y
             {
-                get
-                {
-                    return m_y;
-                }
-                set
-                {
-                    m_y = value;
-                }
+                get { return m_y; }
+                set { m_y = value; }
             }
+
         }
 
-        public class Apple : PositionedEntity
+        public class Poisoned_Apple : PositionedEntity
         {
             List<PositionedEntity> m_snake;
-            public Apple(List<PositionedEntity> s)
-                : base(0, 0, 40, 40, "pack://application:,,,/Resources/fruit.png")
+            public Poisoned_Apple(List<PositionedEntity> s)
+                : base(0, 0, 40, 40, "pack://application:,,,/Resources/apple.png")  // Координаты, размеры, картинка
             {
                 m_snake = s;
                 move();
@@ -238,11 +263,45 @@ namespace Snake
 
             public override void move()
             {
-                Random rand = new Random();
+                var rand = new Random(DateTime.Now.Millisecond);
                 do
                 {
-                    x = rand.Next(13) * 40 + 40;
-                    y = rand.Next(13) * 40 + 40;
+                    x = rand.Next(13) * 40 + 40;  // Положение фрукта
+                    y = rand.Next(13) * 40 + 40;  // Положение фрукта
+                    bool overlap = true;
+                    foreach (var p in m_snake)
+                    {
+                        if (p.x == x && p.y == y)
+                        {
+                            overlap = false;
+                            break;
+                        }
+                    }
+                    if (!overlap)
+                        break;
+                } while (false);
+
+            }
+        }
+
+        public class Apple : PositionedEntity
+        {
+            List<PositionedEntity> m_snake;
+            public Apple(List<PositionedEntity> s)
+                : base(0, 0, 40, 40, "pack://application:,,,/Resources/fruit.png")  // Координаты, размеры, картинка
+            {
+                m_snake = s;
+                move();
+            }
+
+            public override void move()
+            {
+                var rand = new Random(DateTime.Now.Second);
+                do
+                {
+                    x = rand.Next(13) * 40 + 40;  // Положение фрукта
+                    y = rand.Next(13) * 40 + 40;  // Положение фрукта
+                    
                     bool overlap = false;
                     foreach (var p in m_snake)
                     {
@@ -307,6 +366,7 @@ namespace Snake
         public class BodyPart : PositionedEntity
         {
             PositionedEntity m_next;
+
             public BodyPart(PositionedEntity next)
                 : base(next.x, next.y, 40, 40, "pack://application:,,,/Resources/body.png")
             {
